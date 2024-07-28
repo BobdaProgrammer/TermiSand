@@ -13,6 +13,7 @@ import (
 var (
 	screenWidth, screenHeight int
 	grid                      [][]int
+	styleGrid                 [][]int
 	lastMouseX, lastMouseY    int
 	mouseMoved                bool
 )
@@ -49,41 +50,45 @@ func HSVtoRGB(hue int) (int32, int32, int32) {
 	return int32(r), int32(g), int32(b)
 }
 
-func render(s tcell.Screen, updates [][2]int) {
-	for _, update := range updates {
-		x, y := update[0], update[1]
-		ch := grid[y][x]
-		if ch > 0 {
-			blockstyle := tcell.StyleDefault.Background(tcell.NewRGBColor(HSVtoRGB(ch)))
-			s.SetContent(x, y, ' ', nil, blockstyle)
-		} else {
-			s.SetContent(x, y, ' ', nil, tcell.StyleDefault)
-		}
-	}
-}
+func render(s tcell.Screen) {
 
-func updateGrid() [][2]int {
-	updates := make([][2]int, 0)
 	for y := screenHeight - 2; y >= 0; y-- {
 		for x := 0; x < screenWidth; x++ {
+			blockstyle := tcell.StyleDefault.Background(tcell.NewRGBColor(HSVtoRGB(grid[y][x])))
 			if grid[y][x] > 0 {
 				if grid[y+1][x] == 0 {
 					grid[y+1][x] = grid[y][x]
 					grid[y][x] = 0
-					updates = append(updates, [2]int{x, y}, [2]int{x, y + 1})
+					s.SetContent(x, y+1, ' ', nil, blockstyle)
+					styleGrid[y+1][x] = 1
 				} else if x > 0 && grid[y+1][x-1] == 0 {
 					grid[y+1][x-1] = grid[y][x]
 					grid[y][x] = 0
-					updates = append(updates, [2]int{x, y}, [2]int{x - 1, y + 1})
+					s.SetContent(x-1, y+1, ' ', nil, blockstyle)
+					styleGrid[y+1][x-1] = 1
 				} else if x < screenWidth-1 && grid[y+1][x+1] == 0 {
 					grid[y+1][x+1] = grid[y][x]
 					grid[y][x] = 0
-					updates = append(updates, [2]int{x, y}, [2]int{x + 1, y + 1})
+					s.SetContent(x+1, y+1, ' ', nil, blockstyle)
+					styleGrid[y+1][x+1] = 1
 				}
+			} else {
+				style := tcell.StyleDefault
+				if y != 0 && grid[y-1][x] != 0 {
+					style = tcell.StyleDefault.Background(tcell.NewRGBColor(HSVtoRGB(grid[y-1][x])))
+					grid[y][x] = grid[y-1][x]
+					grid[y-1][x] = 0
+					styleGrid[y][x] = 1
+				} else {
+					styleGrid[y][x] = 0
+				}
+				s.SetContent(x, y, ' ', nil, style)
+			}
+			if grid[y][x] != 0 && styleGrid[y][x] == 0 {
+				s.SetContent(x, y, ' ', nil, tcell.StyleDefault.Background(tcell.NewRGBColor(HSVtoRGB(grid[y][x]))))
 			}
 		}
 	}
-	return updates
 }
 
 func main() {
@@ -101,9 +106,11 @@ func main() {
 	s.EnableMouse()
 	screenWidth, screenHeight = s.Size()
 	grid = make([][]int, screenHeight)
+	styleGrid = make([][]int, screenHeight)
 
 	for i := 0; i < screenHeight; i++ {
 		grid[i] = make([]int, screenWidth)
+		styleGrid[i] = make([]int, screenWidth)
 	}
 
 	s.Clear()
@@ -142,7 +149,7 @@ func main() {
 			}
 		case <-ticker.C:
 			// Add sand at the last known mouse position if the mouse has moved
-			if mouseMoved && lastMouseY < screenHeight && lastMouseX < screenWidth {
+			if mouseMoved && lastMouseY < screenHeight && lastMouseX < screenWidth && grid[lastMouseY][lastMouseX] == 0 {
 				grid[lastMouseY][lastMouseX] = colorNum
 				rand1 := rand.Intn(4)
 				rand2 := rand.Intn(4)
@@ -161,8 +168,7 @@ func main() {
 				}
 			}
 
-			updates := updateGrid()
-			render(s, updates)
+			render(s)
 			s.Show()
 			colorNum++
 			if colorNum == 360 {
