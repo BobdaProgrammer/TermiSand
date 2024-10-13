@@ -21,6 +21,9 @@
 ## Description
 TermiSand is a falling sand simulator, but in your terminal!
 
+## Screenshot
+<img src="./.github/example.png">
+
 ## Usage
 ```bash
 termisand.exe
