@@ -1,4 +1,4 @@
-module TermiSand
+module github.com/BobdaProgrammer/TermiSand
 
 go 1.21.6
 
