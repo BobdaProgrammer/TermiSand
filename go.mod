@@ -2,10 +2,7 @@ module github.com/BobdaProgrammer/TermiSand
 
 go 1.21.6
 
-require (
-	github.com/gdamore/tcell/v2 v2.7.4
-	github.com/rivo/tview v0.0.0-20240625185742-b0a7293b8130
-)
+require github.com/gdamore/tcell/v2 v2.7.4
 
 require (
 	github.com/gdamore/encoding v1.0.0 // indirect

@@ -16,6 +16,7 @@ var (
 	styleGrid                 [][]int
 	lastMouseX, lastMouseY    int
 	mouseMoved                bool
+    hasFloor                  bool = true
 )
 
 func HSVtoRGB(hue int) (int32, int32, int32) {
@@ -50,40 +51,77 @@ func HSVtoRGB(hue int) (int32, int32, int32) {
 	return int32(r), int32(g), int32(b)
 }
 
+func BottomRowClear() bool {
+    for x:=range grid[len(grid)-1]{
+        if grid[len(grid)-1][x] != 0{
+            return false
+        }
+    }
+    return true
+}
+
+func resetGrid(s tcell.Screen){
+	grid = make([][]int, screenHeight)
+	styleGrid = make([][]int, screenHeight)
+
+	for i := 0; i < screenHeight; i++ {
+		grid[i] = make([]int, screenWidth)
+		styleGrid[i] = make([]int, screenWidth)
+        for x := 0; x < screenWidth; x++{
+				s.SetContent(x, i, ' ', nil, tcell.StyleDefault)
+        }
+	}
+}
+
 func render(s tcell.Screen) {
 
+    if !hasFloor{
+        isclear:=true
+        for x := range grid[len(grid)-1]{
+            if grid[len(grid)-1][x] != 0{
+                isclear=false;
+            }
+            grid[len(grid)-1][x]=0
+            s.SetContent(x, screenHeight-1, ' ', nil, tcell.StyleDefault)
+        }
+        if isclear{
+            hasFloor=true
+            resetGrid(s)
+            return
+        }
+    }
 	for y := screenHeight - 2; y >= 0; y-- {
 		for x := 0; x < screenWidth; x++ {
 			blockstyle := tcell.StyleDefault.Background(tcell.NewRGBColor(HSVtoRGB(grid[y][x])))
-			if grid[y][x] > 0 {
-				if grid[y+1][x] == 0 {
-					grid[y+1][x] = grid[y][x]
-					grid[y][x] = 0
-					s.SetContent(x, y+1, ' ', nil, blockstyle)
-					styleGrid[y+1][x] = 1
-				} else if x > 0 && grid[y+1][x-1] == 0 {
-					grid[y+1][x-1] = grid[y][x]
-					grid[y][x] = 0
-					s.SetContent(x-1, y+1, ' ', nil, blockstyle)
-					styleGrid[y+1][x-1] = 1
-				} else if x < screenWidth-1 && grid[y+1][x+1] == 0 {
-					grid[y+1][x+1] = grid[y][x]
-					grid[y][x] = 0
-					s.SetContent(x+1, y+1, ' ', nil, blockstyle)
-					styleGrid[y+1][x+1] = 1
-				}
-			} else {
-				style := tcell.StyleDefault
-				if y != 0 && grid[y-1][x] != 0 {
-					style = tcell.StyleDefault.Background(tcell.NewRGBColor(HSVtoRGB(grid[y-1][x])))
-					grid[y][x] = grid[y-1][x]
-					grid[y-1][x] = 0
-					styleGrid[y][x] = 1
-				} else {
-					styleGrid[y][x] = 0
-				}
-				s.SetContent(x, y, ' ', nil, style)
-			}
+            if grid[y][x] > 0 {
+                if grid[y+1][x] == 0 {
+                    grid[y+1][x] = grid[y][x]
+                    grid[y][x] = 0
+                    s.SetContent(x, y+1, ' ', nil, blockstyle)
+                    styleGrid[y+1][x] = 1
+                } else if x > 0 && grid[y+1][x-1] == 0 {
+                    grid[y+1][x-1] = grid[y][x]
+                    grid[y][x] = 0
+                    s.SetContent(x-1, y+1, ' ', nil, blockstyle)
+                    styleGrid[y+1][x-1] = 1
+                } else if x < screenWidth-1 && grid[y+1][x+1] == 0 {
+                    grid[y+1][x+1] = grid[y][x]
+                    grid[y][x] = 0
+                    s.SetContent(x+1, y+1, ' ', nil, blockstyle)
+                    styleGrid[y+1][x+1] = 1
+                }
+            } else {
+                style := tcell.StyleDefault
+                if y != 0 && grid[y-1][x] != 0 {
+                    style = tcell.StyleDefault.Background(tcell.NewRGBColor(HSVtoRGB(grid[y-1][x])))
+                    grid[y][x] = grid[y-1][x]
+                    grid[y-1][x] = 0
+                    styleGrid[y][x] = 1
+                } else {
+                    styleGrid[y][x] = 0
+                }
+                s.SetContent(x, y, ' ', nil, style)
+            }
 			if grid[y][x] != 0 && styleGrid[y][x] == 0 {
 				s.SetContent(x, y, ' ', nil, tcell.StyleDefault.Background(tcell.NewRGBColor(HSVtoRGB(grid[y][x]))))
 			}
@@ -105,13 +143,7 @@ func main() {
 	s.EnableFocus()
 	s.EnableMouse()
 	screenWidth, screenHeight = s.Size()
-	grid = make([][]int, screenHeight)
-	styleGrid = make([][]int, screenHeight)
-
-	for i := 0; i < screenHeight; i++ {
-		grid[i] = make([]int, screenWidth)
-		styleGrid[i] = make([]int, screenWidth)
-	}
+    resetGrid(s)
 
 	s.Clear()
 	colorNum := 0
@@ -136,12 +168,15 @@ func main() {
 			switch ev := ev.(type) {
 			case *tcell.EventKey:
 				switch ev.Key() {
-				case tcell.KeyCtrlQ:
+				case tcell.KeyCtrlQ, tcell.KeyCtrlC:
 					s.Fini()
 					os.Exit(0)
+                case tcell.KeyCtrlR:
+                    hasFloor = false
 				}
 			case *tcell.EventResize:
 				screenWidth, screenHeight = s.Size()
+                resetGrid(s)
 				s.Sync()
 			case *tcell.EventMouse:
 				lastMouseX, lastMouseY = ev.Position()
@@ -149,7 +184,7 @@ func main() {
 			}
 		case <-ticker.C:
 			// Add sand at the last known mouse position if the mouse has moved
-			if mouseMoved && lastMouseY < screenHeight && lastMouseX < screenWidth && grid[lastMouseY][lastMouseX] == 0 {
+			if hasFloor && mouseMoved && lastMouseY < screenHeight && lastMouseX < screenWidth && grid[lastMouseY][lastMouseX] == 0 {
 				grid[lastMouseY][lastMouseX] = colorNum
 				rand1 := rand.Intn(4)
 				rand2 := rand.Intn(4)
@@ -166,14 +201,15 @@ func main() {
 				if (rand1 == 3 || rand2 == 3) && lastMouseX+1 < screenWidth && grid[lastMouseY][lastMouseX+1] == 0 {
 					grid[lastMouseY][lastMouseX+1] = colorNum
 				}
+    			colorNum++
+	    		if colorNum == 360 {
+			    	colorNum = 1
+		    	}
 			}
 
 			render(s)
 			s.Show()
-			colorNum++
-			if colorNum == 360 {
-				colorNum = 1
-			}
+
 		}
 	}
 }

@@ -25,10 +25,10 @@ TermiSand is a falling sand simulator, but in your terminal!
 <img src="./.github/example.png">
 
 ## Usage
-```bash
-termisand.exe
-```
-and then move your cursor around and enjoy the show!
+Run the "TermiSand" executable
+
+and then move your cursor around and enjoy the show!  
+to clear the screen press ctrl+r and watch as the sand falls off the screen ready for you to start filling it up again!
 
 ## Built with
 ![](https://img.shields.io/badge/tcell-4298B8.svg?style=for-the-badge&logoColor=white)
